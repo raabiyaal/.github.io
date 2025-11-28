@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>US Migration Dashboard</title>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100vh;
+    padding: 15px;
+    overflow: hidden;
+  }
+
+  .container {
+    display: flex;
+    gap: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+    height: 100%;
+  }
+
+  .sidebar {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    width: 280px;
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .main-content {
+    flex: 1;
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  h1 {
+    color: #2d3748;
+    font-size: 22px;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    color: #718096;
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .control-group {
+    margin-bottom: 16px;
+  }
+
+  .control-label {
+    display: block;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .button-group.single {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    padding: 8px 10px;
+    border: 2px solid #e2e8f0;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: #4a5568;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .btn:hover {
+    border-color: #667eea;
+    color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  }
+
+  .btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #2d3748;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+  }
+
+  select:hover {
+    border-color: #667eea;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  #map-container {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10px;
+  }
+
+  #map {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .state {
+    stroke: #fff;
+    stroke-width: 0.5px;
+    transition: opacity 0.2s;
+  }
+
+  .state:hover {
+    opacity: 0.8;
+    stroke-width: 1.5px;
+  }
+
+  .tooltip {
+    position: absolute;
+    background: rgba(45, 55, 72, 0.95);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    pointer-events: none;
+    font-size: 13px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+  }
+
+  .tooltip b {
+    color: #a0aec0;
+    font-weight: 500;
+  }
+
+  #legend {
+    margin-bottom: 8px;
+  }
+
+  .legend-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4a5568;
+    margin-bottom: 8px;
+  }
+
+  canvas {
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .legend-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #718096;
+    font-weight: 500;
+  }
+</style>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://d3js.org/topojson.v3.min.js"></script>
+</head>
+
+<body>
+
+<div class="container">
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <h1>US Migration</h1>
+    <p class="subtitle">Explore net migration patterns across the United States by geography, demographics, and time period.</p>
+
+    <!-- Geographic Level -->
+    <div class="control-group">
+      <label class="control-label">Geographic Level</label>
+      <div class="button-group">
+        <button class="btn active" data-level="state">State</button>
+        <button class="btn" data-level="county">County</button>
+      </div>
+    </div>
+
+    <!-- Metric Type -->
+    <div class="control-group">
+      <label class="control-label">Metric Type</label>
+      <div class="button-group">
+        <button class="btn active" data-metric="r">Migration Rate</button>
+        <button class="btn" data-metric="m">Total Migrants</button>
+      </div>
+    </div>
+
+    <!-- Time Period -->
+    <div class="control-group">
+      <label class="control-label">Time Period</label>
+      <div class="button-group">
+        <button class="btn active" data-decade="1">2011-2020</button>
+        <button class="btn" data-decade="0">2001-2010</button>
+      </div>
+    </div>
+
+    <!-- Race/Ethnicity -->
+    <div class="control-group">
+      <label class="control-label">Race/Ethnicity</label>
+      <select id="race"></select>
+    </div>
+
+    <!-- Sex -->
+    <div class="control-group">
+      <label class="control-label">Sex</label>
+      <select id="sex">
+        <option value="t">Total (Both)</option>
+        <option value="m">Male</option>
+        <option value="f">Female</option>
+      </select>
+    </div>
+
+    <!-- Age Group -->
+    <div class="control-group">
+      <label class="control-label">Age Group</label>
+      <select id="age"></select>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <div id="legend">
+      <div class="legend-title">Color Scale</div>
+    </div>
+    
+    <div id="map-container">
+      <svg id="map" width="960" height="600"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip" style="opacity: 0;"></div>
+
+<script>
+// -----------------------------
+// STATE MANAGEMENT
+// -----------------------------
+let currentState = {
+  geoLevel: "state",
+  metric: "r",
+  decade: "1",
+  race: "tt",
+  sex: "t",
+  age: "100"
+};
+
+// -----------------------------
+// RACES
+// -----------------------------
+const raceOptions = {
+  "1": [
+    { code: "tt", label: "Total (All Races)" },
+    { code: "it", label: "American Indian/Alaskan Native" },
+    { code: "an", label: "non-Hispanic Asian/Pacific Islander" },
+    { code: "bn", label: "non-Hispanic Black" },
+    { code: "wn", label: "non-Hispanic White" }
+  ],
+  "0": [
+    { code: "tt", label: "Total (All Races)" },
+    { code: "th", label: "Hispanic" },
+    { code: "bn", label: "non-Hispanic Black" },
+    { code: "wn", label: "non-Hispanic White" },
+    { code: "on", label: "Other non-Hispanic" }
+  ]
+};
+
+// -----------------------------
+// POPULATE AGE
+// -----------------------------
+const ageValues = [100,0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75];
+const ageDropdown = d3.select("#age");
+
+ageValues.forEach(v => {
+  if (v === 100) {
+    ageDropdown.append("option").attr("value", 100).text("Total (All Ages)");
+  } else {
+    const start = String(v).padStart(2, "0");
+    const end   = String(v + 4).padStart(2, "0");
+    ageDropdown.append("option").attr("value", v).text(`${start}-${end}`);
+  }
+});
+
+// -----------------------------
+// UPDATE RACE DROPDOWN
+// -----------------------------
+function updateRaceDropdown(decade) {
+  const dd = d3.select("#race");
+  dd.selectAll("option").remove();
+
+  raceOptions[decade].forEach(r => {
+    dd.append("option").attr("value", r.code).text(r.label);
+  });
+
+  dd.property("value", currentState.race);
+}
+
+updateRaceDropdown("1");
+
+// -----------------------------
+// BUTTON HANDLERS
+// -----------------------------
+document.querySelectorAll('.btn[data-level]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.btn[data-level]').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentState.geoLevel = this.dataset.level;
+    updateMap();
+  });
+});
+
+document.querySelectorAll('.btn[data-metric]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.btn[data-metric]').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentState.metric = this.dataset.metric;
+    updateMap();
+  });
+});
+
+document.querySelectorAll('.btn[data-decade]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.btn[data-decade]').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentState.decade = this.dataset.decade;
+    updateRaceDropdown(this.dataset.decade);
+    updateMap();
+  });
+});
+
+d3.select("#race").on("change", function() {
+  currentState.race = this.value;
+  updateMap();
+});
+
+d3.select("#sex").on("change", function() {
+  currentState.sex = this.value;
+  updateMap();
+});
+
+d3.select("#age").on("change", function() {
+  currentState.age = this.value;
+  updateMap();
+});
+
+// -----------------------------
+// LOAD DATA
+// -----------------------------
+Promise.all([
+  d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json"),
+  d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json"),
+  d3.csv("mydata.csv")
+]).then(([usStates, usCounties, data]) => {
+
+  data.forEach(d => d.fips = String(d.fips).padStart(5,"0"));
+
+  const dataMap = new Map(data.map(d => [d.fips, d]));
+
+  const svg = d3.select("#map");
+  const tooltip = d3.select("#tooltip");
+
+  const states = topojson.feature(usStates, usStates.objects.states).features;
+  const counties = topojson.feature(usCounties, usCounties.objects.counties).features;
+
+  const projection = d3.geoAlbersUsa().scale(1000).translate([480, 300]);
+  const path = d3.geoPath().projection(projection);
+
+  // -----------------------------
+  // LEGEND
+  // -----------------------------
+  function updateLegend(minVal, maxVal) {
+    const legend = d3.select("#legend");
+    legend.selectAll("canvas, .legend-labels").remove();
+
+    const mid = (minVal + maxVal) / 2;
+
+    const scale = d3.scaleLinear()
+        .domain([minVal, mid, maxVal])
+        .range(["#a50026", "#ffffbf", "#006837"]);
+
+    const w = 280, h = 20;
+    const canvas = legend.append("canvas")
+        .attr("width", w)
+        .attr("height", h)
+        .node();
+
+    const ctx = canvas.getContext("2d");
+
+    for (let i = 0; i < w; i++) {
+      const t = i / (w - 1);
+      const v = minVal + (maxVal - minVal) * t;
+      ctx.fillStyle = scale(v);
+      ctx.fillRect(i, 0, 1, h);
+    }
+
+    legend.append("div")
+      .attr("class", "legend-labels")
+      .style("width", "280px")
+      .html(
+  `<span>${minVal.toLocaleString("en-US", {maximumFractionDigits: 0})}</span>
+   <span>${maxVal.toLocaleString("en-US", {maximumFractionDigits: 0})}</span>`
+);
+  }
+
+  // -----------------------------
+  // COLUMN KEY
+  // -----------------------------
+  function buildColumnKey() {
+    return currentState.metric + currentState.decade + currentState.race + currentState.sex + currentState.age;
+  }
+
+  // -----------------------------
+  // UPDATE MAP
+  // -----------------------------
+  window.updateMap = function() {
+    const col = buildColumnKey();
+    const level = currentState.geoLevel;
+
+    let filteredData;
+    if (level === "state") {
+      filteredData = data.filter(d => Number(d.fips) <= 56);
+    } else {
+      filteredData = data.filter(d => Number(d.fips) > 56);
+    }
+
+    const values = filteredData.map(d => +d[col]).filter(v => !isNaN(v));
+    const minVal = d3.min(values);
+    const maxVal = d3.max(values);
+
+    const color = d3.scaleDiverging()
+        .domain([minVal, 0, maxVal])
+        .interpolator(d3.interpolateRdYlGn);
+
+    updateLegend(minVal, maxVal);
+
+    const geo = (level === "county") ? counties : states;
+
+    svg.selectAll("path")
+      .data(geo)
+      .join("path")
+      .attr("d", path)
+      .attr("class", "state")
+      .attr("fill", d => {
+        const f = String(d.id).padStart(5,"0");
+        const row = dataMap.get(f);
+        return row && row[col] !== "" ? color(+row[col]) : "#e2e8f0";
+      })
+      .on("mousemove", function(event, d) {
+        const f = String(d.id).padStart(5,"0");
+        const row = dataMap.get(f);
+        const v = row ? row[col] : "No data";
+
+        const formatted =
+          (!isNaN(v) && v !== "")
+            ? (+v).toLocaleString("en-US")
+            : v;
+
+        tooltip.style("opacity", 1)
+          .style("left", event.pageX + 15 + "px")
+          .style("top", event.pageY + 15 + "px")
+          .html(`<div style="margin-bottom:4px"><b>${d.properties.name || "County"}</b></div><div><b>Value:</b> ${formatted}</div>`);
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0));
+  }
+
+  updateMap();
+});
+</script>
+
+</body>
+</html>
